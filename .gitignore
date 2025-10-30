@@ -4,11 +4,10 @@ dist/
 build/
 .vite/
 .vercel/
-.next/
-out/
 coverage/
+*.tsbuildinfo
 
-# OS/editor
+# OS / editor
 .DS_Store
 Thumbs.db
 *.log
@@ -17,17 +16,13 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Env & credenciais
+# Env & secrets
 .env
 .env.*
 !.env.example
 
-# Cache
-*.cache
-.cache/
-*.tsbuildinfo
-
-# Frontend frameworks
+# Frameworks
 .svelte-kit/
 .nuxt/
-.angular/
+.next/
+out/
