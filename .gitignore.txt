@@ -1,9 +1,33 @@
-node_modules
-dist
-.vscode
-.vercel
+# Node / build
+node_modules/
+dist/
+build/
+.vite/
+.vercel/
+.next/
+out/
+coverage/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+.vscode/
+.idea/
+
+# Env & credenciais
 .env
 .env.*
 !.env.example
-*.log
-.DS_Store
+
+# Cache
+*.cache
+.cache/
+*.tsbuildinfo
+
+# Frontend frameworks
+.svelte-kit/
+.nuxt/
+.angular/
