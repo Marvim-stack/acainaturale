@@ -1,30 +1,21 @@
-// /api/payments/mp/webhook.ts
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-function allowCors(res: VercelResponse) {
-  const origin = process.env.ORIGIN || '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-}
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  allowCors(res);
-  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).json({ error: "Method Not Allowed" });
+  }
 
-  // MP pode enviar GET (verificação) ou POST (eventos)
   try {
-    // log simples; em produção, valide assinatura e atualize pedido no banco
-    console.log('Webhook MP:', {
-      method: req.method,
-      query: req.query,
-      body: req.body,
-      headers: req.headers,
-    });
+    // Aqui você pode validar assinatura se usar um secret próprio (opcional).
+    // Ex: const secret = process.env.WEBHOOK_SECRET;
 
-    // sempre 200 para não gerar re-tentativas infinitas durante teste
+    // Por ora, apenas loga e responde 200.
+    console.log("Webhook MP ->", JSON.stringify(req.body || {}, null, 2));
     return res.status(200).json({ ok: true });
-  } catch {
-    return res.status(200).json({ ok: true });
+  } catch (err: any) {
+    // Mesmo em erro, devolvemos 200 para o MP não reenfileirar indefinidamente (ajuste conforme sua estratégia)
+    console.error("Erro no webhook:", err?.message || String(err));
+    return res.status(200).end();
   }
 }

@@ -1,11 +1,6 @@
-// /api/health.ts
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Cache-Control', 'no-store');
-  return res.status(200).json({
-    ok: true,
-    env: 'vercel',
-    public_url: process.env.PUBLIC_URL || '',
-  });
+export default function handler(_req: VercelRequest, res: VercelResponse) {
+  const publicUrl = process.env.PUBLIC_URL || "auto";
+  res.status(200).json({ ok: true, env: "server", public_url: publicUrl });
 }

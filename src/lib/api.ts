@@ -1,9 +1,6 @@
-// src/lib/api.ts (frontend helper)
-// Usa same-origin '/api' quando VITE_API_BASE não estiver definido.
-
-const raw = (import.meta as any).env?.VITE_API_BASE || "";
-const API_BASE = raw.replace(/\/+$/, "");
-export const MP_ENABLED = ((import.meta as any).env?.VITE_MP_ENABLED ?? "true").toLowerCase() !== "false";
+const base = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
+export const API_BASE = base || ""; // same-origin na Vercel quando vazio
+export const MP_ENABLED = (import.meta.env.VITE_MP_ENABLED ?? "true").toLowerCase() !== "false";
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -13,10 +10,10 @@ async function json<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-function buildUrl(path: string): string {
+function buildUrl(path: string) {
   const p = path.startsWith("/") ? path : `/${path}`;
-  if (API_BASE) return `${API_BASE}${p}`;
-  return `/api${p}`; // same-origin
+  // Se API_BASE está vazio, use /api do mesmo domínio (Vercel)
+  return `${API_BASE}${API_BASE ? "" : "/api"}${p}`;
 }
 
 export async function postJSON<T>(path: string, body: unknown): Promise<T> {
