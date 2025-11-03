@@ -7,13 +7,12 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, CreditCard, QrCode, X } from "lucide-react";
+import { CheckCircle2, CreditCard, QrCode, X, Copy, Check } from "lucide-react";
 import { CONFIG } from "@/config/store";
 import { geocode, haversineKm, onlyDigits, viaCep, LatLng } from "@/lib/geo";
 
-// Helpers de API / flags (já criados)
+// Helpers de API / flags
 import { MP_ENABLED, postJSON } from "@/lib/api";
-import { PixBoxMP } from "@/components/checkout/PixBoxMP";
 
 /* ---------- UI helpers ---------- */
 const inputBase =
@@ -46,6 +45,67 @@ function Field({
   );
 }
 
+/* Pequeno box inline para exibir o QR do PIX */
+function PixInlineBox(props: {
+  merchantName: string;
+  amount: number;
+  qrBase64: string;
+  qrText: string;
+  onClose?: () => void;
+}) {
+  const [copied, setCopied] = React.useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(props.qrText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {}
+  }
+  return (
+    <div className="rounded-2xl border p-4">
+      <div className="flex items-center justify-between">
+        <div className="text-sm">
+          <div className="font-medium">{props.merchantName}</div>
+          <div className="text-slate-500">PIX • {money(props.amount)}</div>
+        </div>
+        {props.onClose ? (
+          <button
+            onClick={props.onClose}
+            className="h-8 w-8 inline-flex items-center justify-center rounded-lg border hover:bg-slate-50"
+            aria-label="Fechar QR"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-[180px_1fr] items-start">
+        <div className="rounded-xl border p-2 bg-white">
+          <img
+            src={`data:image/png;base64,${props.qrBase64}`}
+            alt="QR PIX"
+            className="block h-auto w-full"
+          />
+        </div>
+        <div className="space-y-2">
+          <div className="text-sm text-slate-600">
+            Escaneie o QR ao lado ou use o código “copia e cola” abaixo.
+          </div>
+          <div className="rounded-xl border bg-slate-50 p-3 text-xs break-all max-h-28 overflow-auto">
+            {props.qrText}
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" onClick={copy} className="rounded-xl">
+              {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+              {copied ? "Copiado!" : "Copiar código"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- componente ---------- */
 export function Checkout() {
   const { items, subtotal } = useCart();
@@ -70,20 +130,14 @@ export function Checkout() {
   const [outsideArea, setOutsideArea] = React.useState(false);
   const [storeLL, setStoreLL] = React.useState<LatLng | null>(null);
 
-  // Estado de "processando pagamento" p/ desabilitar botão
   const [isBusy, setIsBusy] = React.useState(false);
-
-  // estado interno para exibir PixBoxMP quando gerado
   const [mpPix, setMpPix] = React.useState<{ qr?: string; text?: string; id?: string } | null>(null);
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
-  // Se usuário trocar forma de pagamento, limpamos QR aberto
-  React.useEffect(() => {
-    setMpPix(null);
-  }, [form.payment]);
+  React.useEffect(() => { setMpPix(null); }, [form.payment]);
 
   function fmtKm(km: number | null) {
     if (km == null) return "—";
@@ -148,12 +202,10 @@ export function Checkout() {
     return Object.keys(e).length === 0;
   }
 
-  // Totais (com frete dinâmico)
   const deliveryDisplay = outsideArea ? null : (deliveryDyn ?? 0);
   const totalDisplay =
     deliveryDisplay == null ? null : Math.round(((subtotal ?? 0) + deliveryDisplay) * 100) / 100;
 
-  // Debounce de recálculo
   React.useEffect(() => {
     const t = setTimeout(() => {
       if (onlyDigits(zip).length === 8 && form.street && form.number && form.city) {
@@ -204,7 +256,7 @@ export function Checkout() {
         title: "Pedido Açaí Naturale",
         amount: Number(amount.toFixed(2)),
       });
-      window.location.href = data.init_point; // redireciona para o MP
+      window.location.href = data.init_point;
     } catch (err: any) {
       alert(err?.message || "Falha ao iniciar pagamento. Tente novamente.");
     } finally {
@@ -215,7 +267,6 @@ export function Checkout() {
   function submit() {
     if (!validate()) return;
 
-    // Fluxos com MP
     if (form.payment === "pix" && MP_ENABLED) {
       if (!totalDisplay) return;
       void createPixPreference(totalDisplay);
@@ -227,7 +278,7 @@ export function Checkout() {
       return;
     }
 
-    // Sem MP (ambiente de teste) — confirma pedido no WhatsApp/maquininha
+    // Sem MP
     console.log("Pedido (sem MP online):", {
       items,
       subtotal: subtotal ?? 0,
@@ -251,7 +302,7 @@ export function Checkout() {
     >
       <SheetContent size="xl" className="p-0">
         <div className="flex h-full min-h-0 flex-col">
-          {/* Header STICKY (com X alinhado) */}
+          {/* Header */}
           <div className="sticky top-0 z-[1002] border-b bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70">
             <div className="h-14 px-6 flex items-center justify-between">
               <SheetHeader>
@@ -380,15 +431,14 @@ export function Checkout() {
                       </button>
                     </div>
 
-                    {/* PIX box (mobile) — só quando MP estiver habilitado e QR gerado */}
+                    {/* PIX box (mobile) */}
                     {form.payment === "pix" && MP_ENABLED && mpPix?.qr && (
                       <div className="mt-3">
-                        <PixBoxMP
+                        <PixInlineBox
                           merchantName="Açaí Naturale"
                           amount={totalDisplay ?? 0}
                           qrBase64={mpPix.qr}
                           qrText={mpPix.text || ""}
-                          onCopy={() => {}}
                           onClose={() => setMpPix(null)}
                         />
                       </div>
@@ -403,7 +453,7 @@ export function Checkout() {
                 </div>
               </div>
 
-              {/* DIREITA — sticky: resumo + pagamento (desktop) */}
+              {/* DIREITA — resumo + pagamento (desktop) */}
               <aside className="hidden lg:block">
                 <div className="sticky top-6 space-y-4">
                   <Card>
@@ -439,72 +489,71 @@ export function Checkout() {
                     </div>
                   </Card>
 
-                    <Card>
-                      <H3>Pagamento</H3>
-                      <div className="grid gap-3">
-                        <button
-                          type="button" onClick={() => set("payment", "pix")}
-                          className={[
-                            "flex items-center gap-3 rounded-2xl border p-3 text-left transition",
-                            form.payment === "pix"
-                              ? "border-purple-600 ring-2 ring-purple-500/30 bg-purple-50"
-                              : "border-slate-200 hover:bg-slate-50",
-                          ].join(" ")}
-                        >
-                          <div className="h-9 w-9 rounded-xl bg-purple-600 text-white flex items-center justify-center">
-                            <QrCode className="h-5 w-5" />
-                          </div>
-                          <div className="grow">
-                            <div className="font-medium">PIX</div>
-                            <div className="text-sm text-slate-500">
-                              {MP_ENABLED ? "QR / cópia e cola" : "Desabilitado neste ambiente"}
-                            </div>
-                          </div>
-                          {form.payment === "pix" ? <CheckCircle2 className="h-5 w-5 text-purple-600" /> : null}
-                        </button>
-
-                        <button
-                          type="button" onClick={() => set("payment", "card")}
-                          className={[
-                            "flex items-center gap-3 rounded-2xl border p-3 text-left transition",
-                            form.payment === "card"
-                              ? "border-purple-600 ring-2 ring-purple-500/30 bg-purple-50"
-                              : "border-slate-200 hover:bg-slate-50",
-                          ].join(" ")}
-                        >
-                          <div className="h-9 w-9 rounded-xl bg-purple-600 text-white flex items-center justify-center">
-                            <CreditCard className="h-5 w-5" />
-                          </div>
-                          <div className="grow">
-                            <div className="font-medium">Cartão</div>
-                            <div className="text-sm text-slate-500">
-                              {MP_ENABLED ? "Mercado Pago (online)" : "Desabilitado neste ambiente"}
-                            </div>
-                          </div>
-                          {form.payment === "card" ? <CheckCircle2 className="h-5 w-5 text-purple-600" /> : null}
-                        </button>
-                      </div>
-
-                      {/* PIX box (desktop) */}
-                      {form.payment === "pix" && MP_ENABLED && mpPix?.qr && (
-                        <div className="mt-3">
-                          <PixBoxMP
-                            merchantName="Açaí Naturale"
-                            amount={totalDisplay ?? 0}
-                            qrBase64={mpPix.qr}
-                            qrText={mpPix.text || ""}
-                            onCopy={() => {}}
-                            onClose={() => setMpPix(null)}
-                          />
+                  <Card>
+                    <H3>Pagamento</H3>
+                    <div className="grid gap-3">
+                      <button
+                        type="button" onClick={() => set("payment", "pix")}
+                        className={[
+                          "flex items-center gap-3 rounded-2xl border p-3 text-left transition",
+                          form.payment === "pix"
+                            ? "border-purple-600 ring-2 ring-purple-500/30 bg-purple-50"
+                            : "border-slate-200 hover:bg-slate-50",
+                        ].join(" ")}
+                      >
+                        <div className="h-9 w-9 rounded-xl bg-purple-600 text-white flex items-center justify-center">
+                          <QrCode className="h-5 w-5" />
                         </div>
-                      )}
+                        <div className="grow">
+                          <div className="font-medium">PIX</div>
+                          <div className="text-sm text-slate-500">
+                            {MP_ENABLED ? "QR / cópia e cola" : "Desabilitado neste ambiente"}
+                          </div>
+                        </div>
+                        {form.payment === "pix" ? <CheckCircle2 className="h-5 w-5 text-purple-600" /> : null}
+                      </button>
 
-                      {!MP_ENABLED && (
-                        <p className="mt-2 text-xs text-slate-500">
-                          Pagamentos online desabilitados neste ambiente. Confirme o pedido e pague na entrega.
-                        </p>
-                      )}
-                    </Card>
+                      <button
+                        type="button" onClick={() => set("payment", "card")}
+                        className={[
+                          "flex items-center gap-3 rounded-2xl border p-3 text-left transition",
+                          form.payment === "card"
+                            ? "border-purple-600 ring-2 ring-purple-500/30 bg-purple-50"
+                            : "border-slate-200 hover:bg-slate-50",
+                        ].join(" ")}
+                      >
+                        <div className="h-9 w-9 rounded-xl bg-purple-600 text-white flex items-center justify-center">
+                          <CreditCard className="h-5 w-5" />
+                        </div>
+                        <div className="grow">
+                          <div className="font-medium">Cartão</div>
+                          <div className="text-sm text-slate-500">
+                            {MP_ENABLED ? "Mercado Pago (online)" : "Desabilitado neste ambiente"}
+                          </div>
+                        </div>
+                        {form.payment === "card" ? <CheckCircle2 className="h-5 w-5 text-purple-600" /> : null}
+                      </button>
+                    </div>
+
+                    {/* PIX box (desktop) */}
+                    {form.payment === "pix" && MP_ENABLED && mpPix?.qr && (
+                      <div className="mt-3">
+                        <PixInlineBox
+                          merchantName="Açaí Naturale"
+                          amount={totalDisplay ?? 0}
+                          qrBase64={mpPix.qr}
+                          qrText={mpPix.text || ""}
+                          onClose={() => setMpPix(null)}
+                        />
+                      </div>
+                    )}
+
+                    {!MP_ENABLED && (
+                      <p className="mt-2 text-xs text-slate-500">
+                        Pagamentos online desabilitados neste ambiente. Confirme o pedido e pague na entrega.
+                      </p>
+                    )}
+                  </Card>
                 </div>
               </aside>
             </div>
