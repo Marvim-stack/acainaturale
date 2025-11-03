@@ -9,12 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle2, CreditCard, QrCode, X, Copy, Check } from "lucide-react";
 import { CONFIG } from "@/config/store";
-import { geocode, haversineKm, onlyDigits, viaCep, LatLng } from "@/lib/geo";
+import { geocode, haversineKm, onlyDigits, viaCep, type LatLng } from "@/lib/geo";
+import { MP_ENABLED, postJSON } from "@/lib/api"; // flags/API
 
-// Helpers de API / flags
-import { MP_ENABLED, postJSON } from "@/lib/api";
-
-/* ---------- UI helpers ---------- */
+/* ---------- estilos auxiliares ---------- */
 const inputBase =
   "h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-[15px] " +
   "outline-none transition placeholder:text-slate-400 " +
@@ -45,7 +43,7 @@ function Field({
   );
 }
 
-/* Pequeno box inline para exibir o QR do PIX */
+/* Box inline do QR PIX */
 function PixInlineBox(props: {
   merchantName: string;
   amount: number;
@@ -216,7 +214,7 @@ export function Checkout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zip, form.street, form.number, form.district, form.city]);
 
-  /* ---------- AÇÕES MP (protegidas por flag) ---------- */
+  /* ---------- AÇÕES MP ---------- */
   async function createPixPreference(amount: number) {
     if (!MP_ENABLED) {
       alert("Pagamento online ainda não está habilitado neste ambiente.");
@@ -431,7 +429,6 @@ export function Checkout() {
                       </button>
                     </div>
 
-                    {/* PIX box (mobile) */}
                     {form.payment === "pix" && MP_ENABLED && mpPix?.qr && (
                       <div className="mt-3">
                         <PixInlineBox
@@ -535,7 +532,6 @@ export function Checkout() {
                       </button>
                     </div>
 
-                    {/* PIX box (desktop) */}
                     {form.payment === "pix" && MP_ENABLED && mpPix?.qr && (
                       <div className="mt-3">
                         <PixInlineBox
